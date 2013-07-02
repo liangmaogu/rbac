@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<b:beans xmlns="http://www.springframework.org/schema/security"
+    xmlns:b="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+                        http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security-3.1.xsd">
+
+    <http realm="Rbac Realm" entry-point-ref="loginUrlAuthenticationEntryPoint" access-denied-page="/accessDenied.jsp">
+    	<!-- 不要过滤图片等静态资源，其中**代表可以跨越目录，*不可以跨越目录。 -->  
+		<intercept-url pattern="/**/*.jpg" access="IS_AUTHENTICATED_ANONYMOUSLY" />  
+		<intercept-url pattern="/**/*.png" access="IS_AUTHENTICATED_ANONYMOUSLY" />  
+		<intercept-url pattern="/**/*.gif" access="IS_AUTHENTICATED_ANONYMOUSLY" />  
+		<intercept-url pattern="/**/*.css" access="IS_AUTHENTICATED_ANONYMOUSLY" />  
+		<intercept-url pattern="/**/*.js" access="IS_AUTHENTICATED_ANONYMOUSLY" />  
+			
+		<!-- 登录页面和忘记密码页面不过滤 -->  
+		<intercept-url pattern="/login.jsp" access="IS_AUTHENTICATED_ANONYMOUSLY" /> 
+		
+		<logout/>
+		<remember-me/>
+		<session-management session-authentication-strategy-ref="sas"/>
+		
+		<custom-filter ref="concurrencyFilter" position="CONCURRENT_SESSION_FILTER" />
+		<custom-filter ref="loginFilter" position="FORM_LOGIN_FILTER" />
+		<custom-filter ref="rbacFilter" before="FILTER_SECURITY_INTERCEPTOR" />
+    </http>
+    
+    <!-- 登录过滤器 -->
+    <b:bean id="loginFilter" class="com.maogu.rbac.filter.LoginFilter">
+    	<!-- 处理登录的action -->  
+        <b:property name="filterProcessesUrl" value="/j_spring_security_check" />
+        <!-- 验证成功后的处理 -->
+        <b:property name="authenticationSuccessHandler" ref="authenticationSuccessHandler" />
+        <b:property name="sessionAuthenticationStrategy" ref="sas" />
+        <!-- 验证失败后的处理-->
+        <b:property name="authenticationFailureHandler" ref="authenticationFailureHandler" />
+        <b:property name="authenticationManager" ref="rbacAuthenticationManager" />
+         
+        <b:property name="userDao"  ref="userDao"/>
+    </b:bean>
+
+	<b:bean id="authenticationSuccessHandler"
+		class="org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler">
+		<b:property name="defaultTargetUrl" value="/backend/index.jsp" />
+	</b:bean>
+
+	<b:bean id="authenticationFailureHandler"
+		class="org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler">
+		<b:property name="defaultFailureUrl" value="/login.jsp" />
+	</b:bean>
+    
+    <!-- 认证过滤器 -->
+    <b:bean id="rbacFilter" class="com.maogu.rbac.filter.RbacFilter">
+    	<!-- 用户拥有的权限 -->    
+        <b:property name="authenticationManager" ref="rbacAuthenticationManager" />    
+        <!-- 用户是否拥有所请求资源的权限 -->    
+        <b:property name="accessDecisionManager" ref="accessDecisionManagerImpl" />    
+        <!-- 资源与权限对应关系 -->    
+        <b:property name="securityMetadataSource" ref="securityMetadataSource" /> 
+    </b:bean>
+    
+	<!-- 注意能够为authentication-manager 设置alias别名 -->
+	<authentication-manager alias="rbacAuthenticationManager">
+		<authentication-provider user-service-ref="userDetailsServiceImpl" />	
+	</authentication-manager>
+
+	<!-- 用户的密码加密或解密 -->
+	<b:bean id="passwordEncoder"
+		class="org.springframework.security.authentication.encoding.Md5PasswordEncoder" />
+
+	<b:bean id="userDetailsServiceImpl"
+		class="com.maogu.rbac.service.security.UserDetailsServiceImpl">
+		<b:property name="userDao" ref="userDao"></b:property>
+		<b:property name="authorityDao" ref="authorityDao"></b:property>
+		<b:property name="userRoleDao" ref="userRoleDao"></b:property>
+		<b:property name="roleAuthorityDao" ref="roleAuthorityDao"></b:property>
+	</b:bean>
+
+	<b:bean id="securityMetadataSource"
+		class="com.maogu.rbac.service.security.SecurityMetadataSource">
+		<b:property name="authorityDao" ref="authorityDao"></b:property>
+		<b:property name="resourceDao" ref="resourceDao"></b:property>
+		<b:property name="authorityResourceDao" ref="authorityResourceDao"></b:property>
+	</b:bean>
+
+	<b:bean id="accessDecisionManagerImpl"
+		class="com.maogu.rbac.service.security.AccessDecisionManagerImpl" >
+	</b:bean>
+
+	<!-- 未登录的切入点 -->
+	<b:bean id="loginUrlAuthenticationEntryPoint" 
+		class="org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint">
+		<b:property name="loginFormUrl" value="/login.jsp" />
+	</b:bean>
+	
+	<b:bean id="concurrencyFilter" 
+		class="org.springframework.security.web.session.ConcurrentSessionFilter">
+		<b:property name="sessionRegistry" ref="sessionRegistry" />	
+	</b:bean>
+	
+	<b:bean id="sessionRegistry" class="org.springframework.security.core.session.SessionRegistryImpl">
+	</b:bean>
+	
+	<b:bean id="sas"
+      	class="org.springframework.security.web.authentication.session.SessionFixationProtectionStrategy">
+    </b:bean>
+</b:beans>
