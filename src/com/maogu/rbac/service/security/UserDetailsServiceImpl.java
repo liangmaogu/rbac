@@ -43,7 +43,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 	public UserDetails loadUserByUsername(String username)
 			throws UsernameNotFoundException {
 		UserQuery query = new UserQuery();
-		query.setEnabled(1);
 		query.setUsername(username);
 		
 		Page<User> page = userDao.findPage(query);
@@ -66,8 +65,9 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 				}
 			}
 			
+			boolean enabled = user.getEnabled() == 1 ? true : false;
 			org.springframework.security.core.userdetails.User userdetail = new org.springframework.security.core.userdetails.User(
-					user.getUsername(), user.getPassword(), true, true, true, true, authsList);
+					user.getUsername(), user.getPassword(), enabled, true, true, true, authsList);
 			
 			return userdetail;
 		} else {
